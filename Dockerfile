@@ -6,7 +6,7 @@
 # 1.83 is a current, supported toolchain that satisfies it.
 # Base-image drift is tracked automatically via the Dependabot `docker`
 # ecosystem entry in .github/dependabot.yml.
-FROM rust:1.97-slim@sha256:8e8cf8f7fd54a2d23d5a743b3a03f56e26b6c774276c33fa0595111704ebb15c AS builder
+FROM rust:1.99-slim@sha256:2752b332db73fdbb7dc576f06c82ed1f312005784ef913d7e04a28f5f55dc581 AS builder
 
 WORKDIR /usr/src/app
 
