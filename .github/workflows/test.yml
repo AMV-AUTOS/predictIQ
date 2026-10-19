@@ -11,7 +11,7 @@ env:
   RUST_BACKTRACE: 1
   # Enforced by cargo llvm-cov --fail-under-lines (line %, package-scoped runs).
   COVERAGE_FAIL_LINES_PREDICT_IQ: "80"
-  COVERAGE_FAIL_LINES_PREDICTIQ_API: "17"
+  COVERAGE_FAIL_LINES_PREDICTIQ_API: "40"
   # Soroban contract WASM size limit (64 KB internal budget target)
   # Soroban's actual limit is larger, but we enforce this stricter threshold
   # to ensure contract remains performant and deployable across all networks.
