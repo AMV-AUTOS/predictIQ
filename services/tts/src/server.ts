@@ -18,6 +18,7 @@
  */
 
 import { createReadStream } from "fs";
+import { parsePositiveIntEnv } from "./envParsing";
 import express, { Express, Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import { TTSService, TTSConfig, VOICES, AuthError, TTSProviderError } from "./TTSService";
@@ -68,20 +69,20 @@ const config: TTSConfig = {
       }
     : undefined,
   rateLimit: {
-    maxRequests: parseInt(process.env.TTS_RATE_LIMIT_MAX || "100", 10),
-    windowMs: parseInt(process.env.TTS_RATE_LIMIT_WINDOW_MS || "60000", 10),
+    maxRequests: parsePositiveIntEnv("TTS_RATE_LIMIT_MAX", 100),
+    windowMs: parsePositiveIntEnv("TTS_RATE_LIMIT_WINDOW_MS", 60000),
   },
   cache: {
-    ttlMs: parseInt(process.env.TTS_CACHE_TTL_MS || "86400000", 10),
-    maxEntries: parseInt(process.env.TTS_CACHE_MAX_ENTRIES || "1000", 10),
+    ttlMs: parsePositiveIntEnv("TTS_CACHE_TTL_MS", 86400000),
+    maxEntries: parsePositiveIntEnv("TTS_CACHE_MAX_ENTRIES", 1000),
     // Bounds total cached audio bytes, not just entry count — MAX_INPUT_LENGTH
     // allows several-MB buffers per entry, so maxEntries alone permits
     // gigabytes of heap growth. Default: 256 MiB.
-    maxBytes: parseInt(process.env.TTS_CACHE_MAX_BYTES || String(256 * 1024 * 1024), 10),
+    maxBytes: parsePositiveIntEnv("TTS_CACHE_MAX_BYTES", 256 * 1024 * 1024),
   },
   retry: {
-    maxRetries: parseInt(process.env.TTS_MAX_RETRIES || "3", 10),
-    maxDelayMs: parseInt(process.env.TTS_MAX_DELAY_MS || "60000", 10),
+    maxRetries: parsePositiveIntEnv("TTS_MAX_RETRIES", 3),
+    maxDelayMs: parsePositiveIntEnv("TTS_MAX_DELAY_MS", 60000),
   },
   // Issue #1133: job store, rate limiting, and cache are process-local Maps
   // by default, which break correctness under horizontal scaling (a GET
@@ -188,7 +189,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // The Authorization header cannot be used as a key here: it hasn't been
 // validated yet (auth middleware runs after this, and is optional), so a
 // rotating fake credential would otherwise reset the bucket on every request.
-const ttsRateLimitPerMinute = parseInt(process.env.TTS_RATE_LIMIT_PER_MINUTE || "60", 10);
+const ttsRateLimitPerMinute = parsePositiveIntEnv("TTS_RATE_LIMIT_PER_MINUTE", 60);
 const ttsRateLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: ttsRateLimitPerMinute,
