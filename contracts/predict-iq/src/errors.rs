@@ -195,4 +195,7 @@ pub enum ErrorCode {
 
     /// The bet amount is below the configured minimum bet amount.
     MinimumBetNotMet = 163,
+
+    /// The provided base fee is outside the allowed range (0 to 10_000 bps).
+    InvalidBaseFee = 164,
 }
