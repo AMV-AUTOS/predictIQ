@@ -22,6 +22,9 @@ RUN npm run build
 # ── Stage 2: Runtime ─────────────────────────────────────────────────────────
 FROM node:20-alpine@sha256:658d0f63e501824d6c23e06d4bb95c71e7d704537c9d9272f488ac03a370d448 AS runtime
 
+# Run Express and dependencies in production mode
+ENV NODE_ENV=production
+
 # Create a non-root user to prevent container-escape privilege escalation
 RUN addgroup -S ttsgroup && adduser -S ttsuser -G ttsgroup
 
