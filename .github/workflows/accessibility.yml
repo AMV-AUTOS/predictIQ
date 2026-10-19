@@ -10,6 +10,9 @@ on:
     paths:
       - 'frontend/**'
 
+permissions:
+  contents: read
+
 env:
   NODE_VERSION: '18.x'
   # Lighthouse accessibility threshold (issue #1610).

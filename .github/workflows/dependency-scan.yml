@@ -11,6 +11,9 @@ on:
 # Pinned tool versions for reproducible scans. Bump deliberately.
 # cargo-audit is pinned so a new release cannot silently change scan
 # behavior, JSON output shape, or exit-code semantics mid-stream.
+permissions:
+  contents: read
+
 env:
   CARGO_AUDIT_VERSION: '0.21.2'
 
@@ -103,6 +106,9 @@ jobs:
   scan-trivy:
     name: Scan with Trivy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -129,6 +135,10 @@ jobs:
     timeout-minutes: 20
     needs: [scan-rust, scan-npm, scan-trivy]
     if: always()
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
