@@ -31,6 +31,7 @@ import { W3CTraceContextPropagator } from "@opentelemetry/core";
 import { trace, context } from "@opentelemetry/api";
 import { rateLimitKeyGenerator } from "./rateLimitKey";
 import { initTracing } from "./tracing";
+import { requestLogger } from "./requestLogger";
 import { createRedisSharedStore } from "./SharedStore";
 
 // ---------------------------------------------------------------------------
@@ -161,10 +162,7 @@ app.use(
 app.use(express.json());
 
 // Request logging
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-  next();
-});
+app.use(requestLogger);
 
 // Issue #726: Extract and propagate W3C Trace Context
 const propagator = new W3CTraceContextPropagator();

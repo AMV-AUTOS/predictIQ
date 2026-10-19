@@ -1,0 +1,15 @@
+.git
+.github
+**/node_modules
+**/target
+**/.env
+**/.env.*
+!**/.env.example
+frontend
+docs
+performance
+tests
+**/*.md
+!README.md
+**/coverage
+**/dist
