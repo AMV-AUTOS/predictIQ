@@ -184,6 +184,26 @@ The API service is configured entirely via environment variables. Variables are 
 | `SENDGRID_WEBHOOK_SECRET` | *(none)* | SendGrid webhook signature secret |
 | `ADMIN_WHITELIST_IPS` | *(none — admin routes unrestricted)* | Comma-separated CIDR allowlist |
 
+### ECS task secrets and environment mapping
+
+The ECS task definition (`infrastructure/terraform/modules/ecs/main.tf`) injects the following from AWS Secrets Manager (`secrets`) or plain `environment`. Variables listed in the tables above but absent here are not currently wired into the task definition and must be added to Terraform before they take effect in ECS.
+
+| Variable | Injected via | Terraform resource |
+|---|---|---|
+| `ENVIRONMENT` | `environment` (plain) | `var.environment` |
+| `DB_HOST` | `secrets` | `aws_secretsmanager_secret.db_host` |
+| `DB_PORT` | `secrets` | `aws_secretsmanager_secret.db_port` |
+| `DB_NAME` | `secrets` | `aws_secretsmanager_secret.db_name` |
+| `DB_USER` | `secrets` | `aws_secretsmanager_secret.db_user` |
+| `DB_PASSWORD` | `secrets` | `aws_secretsmanager_secret.db_password` |
+| `REDIS_URL` | `secrets` | `aws_secretsmanager_secret.redis_url` |
+| `HMAC_KEY` | `secrets` | `aws_secretsmanager_secret.hmac_key` |
+| `SENDGRID_API_KEY` | `secrets` | `aws_secretsmanager_secret.sendgrid_api_key` |
+| `SENDGRID_KEY_ROTATED_AT` | `secrets` | `aws_secretsmanager_secret.sendgrid_key_rotated_at` |
+| `API_SIGNING_KEY` | `secrets` | `aws_secretsmanager_secret.api_signing_key` |
+
+Known divergences to reconcile with `services/api/.env.example`: the task definition supplies `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASSWORD` separately rather than a single `DATABASE_URL`, and does not yet inject `API_KEYS`, `BASE_URL`, `FROM_EMAIL`, `UNSUBSCRIBE_SIGNING_SECRET`, `PREDICTIQ_CONTRACT_ID`, `BLOCKCHAIN_RPC_URL` or `STELLAR_NETWORK_PASSPHRASE`.
+
 ### Updating a secret
 
 ```bash
