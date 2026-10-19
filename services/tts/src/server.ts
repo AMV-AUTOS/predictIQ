@@ -18,6 +18,7 @@
  */
 
 import { createReadStream } from "fs";
+import { buildAuthConfig } from "./authConfig";
 import { parsePositiveIntEnv } from "./envParsing";
 import { registerGracefulShutdown } from "./gracefulShutdown";
 import express, { Express, Request, Response, NextFunction } from "express";
@@ -72,12 +73,7 @@ const config: TTSConfig = {
       }
     : undefined,
   outputDir: process.env.TTS_OUTPUT_DIR || "/tmp/tts-output",
-  auth: process.env.TTS_API_KEY
-    ? {
-        type: "apikey",
-        keys: process.env.TTS_API_KEY.split(","),
-      }
-    : undefined,
+  auth: buildAuthConfig(),
   rateLimit: {
     maxRequests: ttsRateLimitMax,
     windowMs: ttsRateLimitWindowMs,
