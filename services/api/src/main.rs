@@ -44,6 +44,10 @@ fn shutdown_timeout() -> Duration {
 /// explicitly configured origins, methods, and headers are allowed.
 
 #[tokio::main]
+fn env_parse<T: std::str::FromStr>(key: &str, default: T) -> T {
+    std::env::var(key).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+}
+
 async fn main() -> anyhow::Result<()> {
     let config = Config::from_env();
 
@@ -481,6 +485,10 @@ async fn main() -> anyhow::Result<()> {
         .merge(admin_routes)
         .layer(middleware::from_fn(validation::request_validation_middleware))
         .layer(middleware::from_fn(validation::request_size_validation_middleware))
+        // Backstops: body-size cap, per-request timeout, global concurrency limit.
+        .layer(axum::extract::DefaultBodyLimit::max(env_parse("MAX_BODY_BYTES", 1_048_576)))
+        .layer(tower_http::timeout::TimeoutLayer::new(Duration::from_secs(env_parse("REQUEST_TIMEOUT_SECS", 30))))
+        .layer(tower::limit::ConcurrencyLimitLayer::new(env_parse("MAX_CONCURRENT_REQUESTS", 1024)))
         .layer(middleware::from_fn(security::security_headers_middleware))
         .layer(compression::compression_layer())
         .layer(cors_layer)

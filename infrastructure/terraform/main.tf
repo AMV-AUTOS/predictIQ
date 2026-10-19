@@ -129,6 +129,7 @@ module "ecs" {
   sendgrid_api_key      = var.sendgrid_api_key
   api_signing_key       = var.api_signing_key
   ecs_tasks_sg_id       = aws_security_group.ecs_tasks.id
+  otlp_endpoint         = var.otlp_endpoint
 }
 
 module "monitoring" {

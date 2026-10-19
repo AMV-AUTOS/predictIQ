@@ -27,9 +27,14 @@ jobs:
 
       - name: Install Prometheus tools
         run: |
-          wget https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
-          tar xzf prometheus-2.45.0.linux-amd64.tar.gz
-          sudo mv prometheus-2.45.0.linux-amd64/promtool /usr/local/bin/
+          PROM_VERSION=2.53.5
+          # SHA256 from the release's sha256sums.txt (pinned; update together with the version)
+          PROM_SHA256=456eb31530484d181e860e329fa0c6628e79eb388fac670cdeb4fa5d57c74ed9
+          PROM_TARBALL="prometheus-${PROM_VERSION}.linux-amd64.tar.gz"
+          curl -fsSL --retry 3 -o "${PROM_TARBALL}" "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/${PROM_TARBALL}"
+          echo "${PROM_SHA256}  ${PROM_TARBALL}" | sha256sum -c -
+          tar xzf "${PROM_TARBALL}"
+          sudo mv "prometheus-${PROM_VERSION}.linux-amd64/promtool" /usr/local/bin/
 
       - name: Check Prometheus rules syntax
         run: promtool check rules performance/config/prometheus-slo-rules.yml
@@ -68,9 +73,15 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
         run: |
-          cargo install --locked soroban-cli --features opt
+          command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run unit tests
         run: cargo test --lib --workspace
@@ -99,8 +110,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run integration tests
         run: cargo test --test '*' --workspace
@@ -133,6 +150,9 @@ jobs:
     name: Gas Benchmarks
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -148,8 +168,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run gas benchmarks
         run: cargo test --benches --features testutils 2>&1 | tee benchmark-output.txt
@@ -158,7 +184,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Compare gas benchmarks against baseline
         working-directory: contracts/predict-iq
@@ -174,22 +200,34 @@ jobs:
           retention-days: 30
 
       - name: Comment PR with benchmark results
-        if: github.event_name == 'pull_request' && always()
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && always()
         uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
             const path = 'contracts/predict-iq/target/gas-benchmark-report.md';
 
-            if (fs.existsSync(path)) {
-              const report = fs.readFileSync(path, 'utf8');
-              
-              github.rest.issues.createComment({
-                issue_number: context.issue.number,
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                body: report
-              });
+            if (!fs.existsSync(path)) {
+              return;
+            }
+            // Hidden marker lets later pushes update the same comment instead of adding a new one.
+            const marker = '<!-- gas-benchmark-report -->';
+            const body = `${marker}\n${fs.readFileSync(path, 'utf8')}`;
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner,
+              repo,
+              issue_number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body && c.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
             }
 
       - name: Fail if gas regression detected
@@ -219,8 +257,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run gas benchmarks
         run: cargo test --benches --features testutils
@@ -229,7 +273,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Save baseline for main branch
         working-directory: contracts/predict-iq
@@ -268,11 +312,23 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      - name: Cache cargo-llvm-cov binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-llvm-cov
+          key: ${{ runner.os }}-bin-cargo-llvm-cov-v1
+
       - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
+        run: command -v cargo-llvm-cov >/dev/null 2>&1 || cargo install cargo-llvm-cov --locked
+
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
 
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Prepare coverage output directory
         run: mkdir -p coverage-reports
@@ -334,8 +390,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
 
+      - name: Cache cargo-audit binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-bin-cargo-audit-v1
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: command -v cargo-audit >/dev/null 2>&1 || cargo install cargo-audit
 
       - name: Run security audit — contracts/predict-iq
         run: cargo audit
@@ -428,9 +490,15 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
+      - name: Cache cargo-audit binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-bin-cargo-audit-v1
+
       - name: Scan Rust dependencies
         run: |
-          cargo install cargo-audit
+          command -v cargo-audit >/dev/null 2>&1 || cargo install cargo-audit
           cargo audit --deny warnings
         working-directory: contracts/predict-iq
 
@@ -599,8 +667,14 @@ jobs:
         with:
           target: wasm32-unknown-unknown
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Build optimized WASM
         run: cargo build --target wasm32-unknown-unknown --release
@@ -696,7 +770,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -739,7 +813,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -818,7 +892,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -964,7 +1038,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Parse benchmark output
         run: |
@@ -1032,7 +1106,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Parse benchmark results
         run: |
@@ -1073,7 +1147,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
 
@@ -1148,8 +1222,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-api-order-${{ hashFiles('services/api/Cargo.lock') }}
 
+      - name: Cache cargo-nextest binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-nextest
+          key: ${{ runner.os }}-bin-cargo-nextest-v1
+
       - name: Install cargo-nextest
-        run: cargo install cargo-nextest --locked
+        run: command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 
       - name: Run tests with seed 1 (unit + doc tests)
         working-directory: services/api
@@ -1339,6 +1419,32 @@ jobs:
           path: /tmp/live-schema.sql
           retention-days: 7
 
+  tts-tests:
+    name: TTS Service Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/tts
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: services/tts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Run Jest tests with coverage
+        run: npm test -- --coverage
+
   all-tests-passed:
     name: All Tests Passed
     needs:
@@ -1372,11 +1478,26 @@ jobs:
       - api-test-order-independence
       - api-property-tests
       - schema-drift-check
+      - tts-tests
+      - container-scanning
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Success
-        run: echo "All tests passed successfully!"
+      - name: Verify all required jobs succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          # container-scanning only runs on pull requests, so a skip is allowed for it.
+          failed=$(echo "$NEEDS_JSON" | jq -r 'to_entries[]
+            | select(.value.result != "success" and (.key != "container-scanning" or .value.result != "skipped"))
+            | "\(.key): \(.value.result)"')
+          if [ -n "$failed" ]; then
+            echo "The following required jobs did not succeed:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All tests passed successfully!"
 
   documentation-sync:
     name: Documentation Sync Check
@@ -1388,7 +1509,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Check API_SPEC.md is in sync with openapi.yaml
         run: node scripts/generate-api-spec.js --check

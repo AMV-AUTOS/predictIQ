@@ -102,6 +102,12 @@ variable "api_signing_key" {
   sensitive   = true
 }
 
+variable "otlp_endpoint" {
+  type        = string
+  default     = ""
+  description = "OTLP collector endpoint injected as OTLP_ENDPOINT (empty disables export)"
+}
+
 variable "ecs_tasks_sg_id" {
   type        = string
   description = "Security group ID of the ECS tasks (managed at root level)"
@@ -163,12 +169,17 @@ resource "aws_ecs_task_definition" "api" {
           protocol      = "tcp"
         }
       ]
-      environment = [
+      environment = concat([
         {
           name  = "ENVIRONMENT"
           value = var.environment
         }
-      ]
+        ], var.otlp_endpoint == "" ? [] : [
+        {
+          name  = "OTLP_ENDPOINT"
+          value = var.otlp_endpoint
+        }
+      ])
       # All secrets are injected from AWS Secrets Manager — no plaintext
       # environment variables for sensitive values.
       secrets = [

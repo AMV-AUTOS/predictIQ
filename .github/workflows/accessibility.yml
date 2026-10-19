@@ -10,8 +10,11 @@ on:
     paths:
       - 'frontend/**'
 
+permissions:
+  contents: read
+
 env:
-  NODE_VERSION: '18.x'
+  NODE_VERSION: '20.x'
   # Lighthouse accessibility threshold (issue #1610).
   # Rationale: a zero-tolerance 100/100 gate on a synthetic Lighthouse run made
   # the all-tests-passed gate brittle — a single non-actionable Lighthouse quirk

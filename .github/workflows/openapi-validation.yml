@@ -14,6 +14,9 @@ on:
       - "services/api/src/**"
       - "services/api/tests/openapi_contract_test.rs"
 
+permissions:
+  contents: read
+
 jobs:
   spectral-lint:
     name: Spectral — OpenAPI structural lint
@@ -25,7 +28,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "18"
+          node-version: "20"
 
       - name: Install Spectral
         run: npm install -g @stoplight/spectral-cli

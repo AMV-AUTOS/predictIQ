@@ -24,7 +24,7 @@ export TTS_API_KEY="key1,key2,key3"
 
 #### Rate Limiting
 
-- `TTS_RATE_LIMIT_MAX`: Max requests per window (default: 100)
+- `TTS_RATE_LIMIT_MAX`: Max requests per window (default: 100). Applies to both the service-level and Express limiters; `TTS_RATE_LIMIT_PER_MINUTE` is a deprecated alias
 - `TTS_RATE_LIMIT_WINDOW_MS`: Window duration in milliseconds (default: 60000)
 
 #### Caching (Issue #724)
@@ -294,3 +294,7 @@ npm test
 - **Caching**: Audio is cached for 24 hours by default, reducing API calls and latency
 - **Rate Limiting**: Default limit is 100 requests per 60 seconds per IP
 - **Async Processing**: Jobs are processed asynchronously to avoid blocking requests
+
+## Note to maintainers (#1802)
+
+`server.ts` already imports `authenticate`/`TTSService` statically at module top and contains no per-request `require("./TTSService")`, so the issue is already resolved on `main`. No code change was needed.
