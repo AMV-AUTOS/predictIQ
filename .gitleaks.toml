@@ -6,14 +6,10 @@ useDefault = true
 [[rules]]
 id = "stellar-secret-key"
 description = "Stellar Secret Key"
-regex = '''S[A-Z0-9]{55}'''
+regex = '''\bS[A-D][A-Z2-7]{54}\b'''
 tags = ["key", "stellar"]
 
-[[rules]]
-id = "stellar-public-key"
-description = "Stellar Public Key"
-regex = '''G[A-Z0-9]{55}'''
-tags = ["key", "stellar"]
+# Stellar public keys (G...) are not secrets and appear in assets and tests, so no rule flags them.
 
 [[rules]]
 id = "api-key-header"
@@ -36,7 +32,7 @@ tags = ["database", "connection"]
 [[rules]]
 id = "redis-url"
 description = "Redis connection string"
-regex = '''redis://[a-zA-Z0-9_.-]+:[^\s:@/'"$<>{}`]+@[a-zA-Z0-9.-]+:[0-9]+'''
+regex = '''rediss?://[a-zA-Z0-9_.-]+:[^\s:@/'"$<>{}`]+@[a-zA-Z0-9.-]+(?::[0-9]+)?'''
 tags = ["redis", "connection"]
 
 [allowlist]
@@ -56,7 +52,7 @@ regexes = [
   '''^localhost$''',
   '''^127\.0\.0\.1$''',
   '''^postgres(ql)?://(?:postgres|user|admin|root|example):(?:password|pass|postgres|example|secret)@(?:localhost|127\.0\.0\.1)(?::[0-9]+)?/[A-Za-z0-9_-]+$''',
-  '''^redis://(?:postgres|user|admin|root|example):(?:password|pass|postgres|example|secret)@(?:localhost|127\.0\.0\.1):[0-9]+$''',
+  '''^rediss?://(?:postgres|user|admin|root|example):(?:password|pass|postgres|example|secret)@(?:localhost|127\.0\.0\.1)(?::[0-9]+)?$''',
   # Canonical Stellar placeholder public key (all X's) used in documentation
   '''GXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX''',
   # Canonical Stellar placeholder secret key (all X's) used in documentation
