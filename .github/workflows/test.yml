@@ -27,9 +27,14 @@ jobs:
 
       - name: Install Prometheus tools
         run: |
-          wget https://github.com/prometheus/prometheus/releases/download/v2.45.0/prometheus-2.45.0.linux-amd64.tar.gz
-          tar xzf prometheus-2.45.0.linux-amd64.tar.gz
-          sudo mv prometheus-2.45.0.linux-amd64/promtool /usr/local/bin/
+          PROM_VERSION=2.53.5
+          # SHA256 from the release's sha256sums.txt (pinned; update together with the version)
+          PROM_SHA256=456eb31530484d181e860e329fa0c6628e79eb388fac670cdeb4fa5d57c74ed9
+          PROM_TARBALL="prometheus-${PROM_VERSION}.linux-amd64.tar.gz"
+          curl -fsSL --retry 3 -o "${PROM_TARBALL}" "https://github.com/prometheus/prometheus/releases/download/v${PROM_VERSION}/${PROM_TARBALL}"
+          echo "${PROM_SHA256}  ${PROM_TARBALL}" | sha256sum -c -
+          tar xzf "${PROM_TARBALL}"
+          sudo mv "prometheus-${PROM_VERSION}.linux-amd64/promtool" /usr/local/bin/
 
       - name: Check Prometheus rules syntax
         run: promtool check rules performance/config/prometheus-slo-rules.yml
