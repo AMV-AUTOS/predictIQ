@@ -17,6 +17,8 @@ use serde::{Deserialize, Serialize};
 pub const MAX_PAGE_LIMIT: u32 = 100;
 /// Default rows returned when the client omits `limit`.
 pub const DEFAULT_LIMIT: u32 = 20;
+/// Maximum accepted cursor length (base64url, unpadded).
+pub const MAX_CURSOR_LEN: usize = 256;
 
 #[derive(Debug, Deserialize)]
 pub struct PaginationParams {
@@ -78,10 +80,12 @@ pub fn validate_pagination(params: PaginationParams) -> Result<ValidatedPaginati
     }
 
     if let Some(cursor) = &params.cursor {
-        if !cursor.chars().all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '=' | '+' | '/')) {
+        if cursor.len() > MAX_CURSOR_LEN
+            || !cursor.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_'))
+        {
             return Err(PaginationError {
                 error:     "invalid_cursor",
-                message:   "cursor contains invalid characters.".to_string(),
+                message:   "cursor must be base64url (A-Z, a-z, 0-9, '-', '_') and at most 256 characters.".to_string(),
                 max_limit: MAX_PAGE_LIMIT,
             });
         }
@@ -265,7 +269,7 @@ mod tests {
     fn valid_looking_cursor_accepted() {
         // A cursor that looks like a deleted-item cursor (valid base64-safe chars) must
         // pass validation; the DB will simply return an empty result set.
-        let cursor = "dGVzdC1jdXJzb3I="; // base64("test-cursor")
+        let cursor = "dGVzdC1jdXJzb3I"; // base64url("test-cursor"), unpadded
         let v = validate_pagination(params_with_cursor(None, Some(cursor.to_string()))).unwrap();
         assert_eq!(v.cursor.as_deref(), Some(cursor));
     }
@@ -276,6 +280,15 @@ mod tests {
         let tampered = "<script>alert(1)</script>";
         let err = validate_pagination(params_with_cursor(None, Some(tampered.to_string()))).unwrap_err();
         assert_eq!(err.error, "invalid_cursor");
+    }
+
+    #[test]
+    fn cursor_rejects_std_base64_unicode_and_overlong() {
+        for bad in ["a+b", "a/b", "abc=", "caf\u{e9}", &"a".repeat(MAX_CURSOR_LEN + 1)] {
+            let err = validate_pagination(params_with_cursor(None, Some(bad.to_string()))).unwrap_err();
+            assert_eq!(err.error, "invalid_cursor");
+        }
+        assert!(validate_pagination(params_with_cursor(None, Some("a".repeat(MAX_CURSOR_LEN)))).is_ok());
     }
 
     #[test]
