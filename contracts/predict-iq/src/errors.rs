@@ -192,4 +192,7 @@ pub enum ErrorCode {
 
     /// The operation would reduce the guardian set below the required minimum.
     BelowMinimumGuardianCount = 162,
+
+    /// The bet amount is below the configured minimum bet amount.
+    MinimumBetNotMet = 163,
 }
