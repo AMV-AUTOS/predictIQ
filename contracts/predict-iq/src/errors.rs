@@ -205,6 +205,9 @@ pub enum ErrorCode {
     /// The guardian removal proposal's voting period has expired.
     RemovalExpired = 166,
 
+    /// The bet amount is below the configured minimum bet amount.
+    MinimumBetNotMet = 167,
+
     /// The provided base fee is outside the allowed range (0 to 10_000 bps).
-    InvalidBaseFee = 167,
+    InvalidBaseFee = 168,
 }
