@@ -68,9 +68,15 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
         run: |
-          cargo install --locked soroban-cli --features opt
+          command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run unit tests
         run: cargo test --lib --workspace
@@ -99,8 +105,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run integration tests
         run: cargo test --test '*' --workspace
@@ -148,8 +160,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run gas benchmarks
         run: cargo test --benches --features testutils 2>&1 | tee benchmark-output.txt
@@ -219,8 +237,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Run gas benchmarks
         run: cargo test --benches --features testutils
@@ -268,11 +292,23 @@ jobs:
         with:
           components: llvm-tools-preview
 
+      - name: Cache cargo-llvm-cov binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-llvm-cov
+          key: ${{ runner.os }}-bin-cargo-llvm-cov-v1
+
       - name: Install cargo-llvm-cov
-        run: cargo install cargo-llvm-cov --locked
+        run: command -v cargo-llvm-cov >/dev/null 2>&1 || cargo install cargo-llvm-cov --locked
+
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
 
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Prepare coverage output directory
         run: mkdir -p coverage-reports
@@ -334,8 +370,14 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4 # stable
 
+      - name: Cache cargo-audit binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-bin-cargo-audit-v1
+
       - name: Install cargo-audit
-        run: cargo install cargo-audit
+        run: command -v cargo-audit >/dev/null 2>&1 || cargo install cargo-audit
 
       - name: Run security audit — contracts/predict-iq
         run: cargo audit
@@ -428,9 +470,15 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
+      - name: Cache cargo-audit binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: ${{ runner.os }}-bin-cargo-audit-v1
+
       - name: Scan Rust dependencies
         run: |
-          cargo install cargo-audit
+          command -v cargo-audit >/dev/null 2>&1 || cargo install cargo-audit
           cargo audit --deny warnings
         working-directory: contracts/predict-iq
 
@@ -599,8 +647,14 @@ jobs:
         with:
           target: wasm32-unknown-unknown
 
+      - name: Cache soroban-cli binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/soroban
+          key: ${{ runner.os }}-bin-soroban-cli-v1
+
       - name: Install Soroban CLI
-        run: cargo install --locked soroban-cli --features opt
+        run: command -v soroban >/dev/null 2>&1 || cargo install --locked soroban-cli --features opt
 
       - name: Build optimized WASM
         run: cargo build --target wasm32-unknown-unknown --release
@@ -1148,8 +1202,14 @@ jobs:
             target
           key: ${{ runner.os }}-cargo-api-order-${{ hashFiles('services/api/Cargo.lock') }}
 
+      - name: Cache cargo-nextest binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-nextest
+          key: ${{ runner.os }}-bin-cargo-nextest-v1
+
       - name: Install cargo-nextest
-        run: cargo install cargo-nextest --locked
+        run: command -v cargo-nextest >/dev/null 2>&1 || cargo install cargo-nextest --locked
 
       - name: Run tests with seed 1 (unit + doc tests)
         working-directory: services/api

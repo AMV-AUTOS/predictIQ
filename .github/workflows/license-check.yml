@@ -28,8 +28,14 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-deny-contracts-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Cache cargo-deny binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: ${{ runner.os }}-bin-cargo-deny-v1
+
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        run: command -v cargo-deny >/dev/null 2>&1 || cargo install cargo-deny --locked
 
       - name: Check licenses — contracts workspace
         run: cargo deny check licenses
@@ -53,8 +59,14 @@ jobs:
             ~/.cargo/git
           key: ${{ runner.os }}-cargo-deny-api-${{ hashFiles('services/api/Cargo.lock') }}
 
+      - name: Cache cargo-deny binary
+        uses: actions/cache@v5
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: ${{ runner.os }}-bin-cargo-deny-v1
+
       - name: Install cargo-deny
-        run: cargo install cargo-deny --locked
+        run: command -v cargo-deny >/dev/null 2>&1 || cargo install cargo-deny --locked
 
       - name: Check licenses — services/api
         run: cargo deny check licenses
