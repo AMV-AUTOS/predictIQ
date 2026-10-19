@@ -193,6 +193,9 @@ pub enum ErrorCode {
     /// The operation would reduce the guardian set below the required minimum.
     BelowMinimumGuardianCount = 162,
 
+    /// The bet amount is below the configured minimum bet amount.
+    MinimumBetNotMet = 163,
+
     /// The provided base fee is outside the allowed range (0 to 10_000 bps).
-    InvalidBaseFee = 163,
+    InvalidBaseFee = 164,
 }
