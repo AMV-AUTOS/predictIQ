@@ -192,4 +192,16 @@ pub enum ErrorCode {
 
     /// The operation would reduce the guardian set below the required minimum.
     BelowMinimumGuardianCount = 162,
+
+    /// The provided token does not match the market's expected token.
+    InvalidToken = 163,
+
+    /// The caller has already voted on this guardian removal proposal.
+    AlreadyVotedOnRemoval = 164,
+
+    /// No guardian removal proposal is pending for the given target.
+    RemovalNotPending = 165,
+
+    /// The guardian removal proposal's voting period has expired.
+    RemovalExpired = 166,
 }
