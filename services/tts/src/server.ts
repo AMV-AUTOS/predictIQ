@@ -18,6 +18,7 @@
  */
 
 import { createReadStream } from "fs";
+import { buildAuthConfig } from "./authConfig";
 import express, { Express, Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import { TTSService, TTSConfig, VOICES, AuthError, TTSProviderError } from "./TTSService";
@@ -61,12 +62,7 @@ const config: TTSConfig = {
       }
     : undefined,
   outputDir: process.env.TTS_OUTPUT_DIR || "/tmp/tts-output",
-  auth: process.env.TTS_API_KEY
-    ? {
-        type: "apikey",
-        keys: process.env.TTS_API_KEY.split(","),
-      }
-    : undefined,
+  auth: buildAuthConfig(),
   rateLimit: {
     maxRequests: parseInt(process.env.TTS_RATE_LIMIT_MAX || "100", 10),
     windowMs: parseInt(process.env.TTS_RATE_LIMIT_WINDOW_MS || "60000", 10),
