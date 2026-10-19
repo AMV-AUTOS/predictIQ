@@ -48,6 +48,14 @@ initTracing();
 // Configuration
 // ---------------------------------------------------------------------------
 
+// Issue #1799: single rate-limit setting shared by the service-level limiter and
+// the Express limiter. TTS_RATE_LIMIT_PER_MINUTE is a deprecated alias for
+// TTS_RATE_LIMIT_MAX (used only when TTS_RATE_LIMIT_MAX is unset).
+const ttsRateLimitMax = process.env.TTS_RATE_LIMIT_MAX
+  ? parsePositiveIntEnv("TTS_RATE_LIMIT_MAX", 100)
+  : parsePositiveIntEnv("TTS_RATE_LIMIT_PER_MINUTE", 100);
+const ttsRateLimitWindowMs = parsePositiveIntEnv("TTS_RATE_LIMIT_WINDOW_MS", 60000);
+
 const config: TTSConfig = {
   provider: (process.env.TTS_PROVIDER as any) || "elevenlabs",
   elevenlabs: process.env.ELEVENLABS_API_KEY
@@ -69,8 +77,8 @@ const config: TTSConfig = {
       }
     : undefined,
   rateLimit: {
-    maxRequests: parsePositiveIntEnv("TTS_RATE_LIMIT_MAX", 100),
-    windowMs: parsePositiveIntEnv("TTS_RATE_LIMIT_WINDOW_MS", 60000),
+    maxRequests: ttsRateLimitMax,
+    windowMs: ttsRateLimitWindowMs,
   },
   cache: {
     ttlMs: parsePositiveIntEnv("TTS_CACHE_TTL_MS", 86400000),
@@ -189,13 +197,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // The Authorization header cannot be used as a key here: it hasn't been
 // validated yet (auth middleware runs after this, and is optional), so a
 // rotating fake credential would otherwise reset the bucket on every request.
-const ttsRateLimitPerMinute = parsePositiveIntEnv("TTS_RATE_LIMIT_PER_MINUTE", 60);
 const ttsRateLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: ttsRateLimitPerMinute,
+  windowMs: ttsRateLimitWindowMs,
+  max: ttsRateLimitMax,
   keyGenerator: rateLimitKeyGenerator,
   handler: (_req: Request, res: Response): void => {
-    res.setHeader("Retry-After", "60");
+    res.setHeader("Retry-After", String(Math.ceil(ttsRateLimitWindowMs / 1000)));
     res.status(429).json({ error: "Too Many Requests" });
   },
 });
