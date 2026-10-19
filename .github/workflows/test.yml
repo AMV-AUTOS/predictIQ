@@ -1419,11 +1419,25 @@ jobs:
       - api-property-tests
       - schema-drift-check
       - tts-tests
+      - container-scanning
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Success
-        run: echo "All tests passed successfully!"
+      - name: Verify all required jobs succeeded
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          # container-scanning only runs on pull requests, so a skip is allowed for it.
+          failed=$(echo "$NEEDS_JSON" | jq -r 'to_entries[]
+            | select(.value.result != "success" and (.key != "container-scanning" or .value.result != "skipped"))
+            | "\(.key): \(.value.result)"')
+          if [ -n "$failed" ]; then
+            echo "The following required jobs did not succeed:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All tests passed successfully!"
 
   documentation-sync:
     name: Documentation Sync Check
