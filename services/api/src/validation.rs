@@ -160,35 +160,17 @@ pub async fn content_type_validation_middleware(req: Request, next: Next) -> Res
     next.run(req).await
 }
 
-// ── Query / path validation ───────────────────────────────────────────────────
+// ── Path validation ───────────────────────────────────────────────────────────
 
-static SUSPICIOUS_QUERY_PATTERNS: &[&str] = &[
-    "' or", "\" or", "1=1", "or 1=1", "drop table", "select ", "insert ",
-    "delete ", "update ", "union ", "--", "/*", "*/", "xp_", "exec(",
-];
+static SUSPICIOUS_PATH_PATTERNS: &[&str] = &["../", "..\\", "%2e%2e"];
 
-static SUSPICIOUS_PATH_PATTERNS: &[&str] = &["//", "../", "..\\", "%2e%2e"];
-
-/// Reject requests with SQL-injection or path-traversal patterns in query / path.
+/// Reject requests with path-traversal patterns in the path.
+///
+/// Query strings are intentionally not pattern-matched: all SQL uses bound
+/// parameters, and substring blocklists reject valid input (e.g. base64url
+/// cursors containing `--`) while being bypassed by percent-encoding.
 pub async fn request_validation_middleware(req: Request, next: Next) -> Response {
-    let uri = req.uri();
-
-    if let Some(query) = uri.query() {
-        let lower = query.to_lowercase();
-        if SUSPICIOUS_QUERY_PATTERNS.iter().any(|p| lower.contains(p)) {
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({
-                    "error": "invalid_request",
-                    "message": "Request contains disallowed query patterns."
-                })),
-            )
-                .into_response();
-        }
-    }
-
-    let path = uri.path();
-    let lower_path = path.to_lowercase();
+    let lower_path = req.uri().path().to_lowercase();
     if SUSPICIOUS_PATH_PATTERNS.iter().any(|p| lower_path.contains(p)) {
         return (
             StatusCode::BAD_REQUEST,
@@ -238,19 +220,17 @@ fn contains_injection(value: &str) -> bool {
     REJECT_PATTERNS.iter().any(|pat| lower.contains(pat))
 }
 
-pub fn strip_html_tags(input: &str) -> String {
-    let mut out = String::with_capacity(input.len());
-    let mut in_tag = false;
-
-    for ch in input.chars() {
-        match ch {
-            '<'          => { in_tag = true; }
-            '>'          => { in_tag = false; }
-            _ if !in_tag => out.push(ch),
-            _            => {}
+/// True when `input` contains something that parses as an HTML tag, comment or
+/// doctype (`<` followed by a letter, `/`, `!` or `?`). A bare `<` such as in
+/// `5 < 6` is not markup.
+fn contains_markup(input: &str) -> bool {
+    let mut chars = input.chars().peekable();
+    while let Some(c) = chars.next() {
+        if c == '<' && matches!(chars.peek(), Some(n) if n.is_ascii_alphabetic() || matches!(n, '/' | '!' | '?')) {
+            return true;
         }
     }
-    out
+    false
 }
 
 fn strip_control_chars(input: &str) -> String {
@@ -264,19 +244,18 @@ pub fn sanitize_string(
     field_name: &str,
     value: &str,
 ) -> Result<String, ValidationError> {
-    if contains_injection(value) {
+    if contains_injection(value) || contains_markup(value) {
         return Err(ValidationError {
             error:   "invalid_content",
             field:   field_name.to_string(),
             message: format!(
-                "Field '{}' contains disallowed content (script tags or event handlers).",
+                "Field '{}' contains disallowed content (markup, script tags or event handlers).",
                 field_name
             ),
         });
     }
 
-    let stripped = strip_html_tags(value);
-    let clean    = strip_control_chars(&stripped);
+    let clean = strip_control_chars(value);
     Ok(clean.trim().to_string())
 }
 
@@ -288,7 +267,7 @@ pub fn validate_string(
 ) -> Result<String, ValidationError> {
     let sanitized = sanitize_string(field_name, value)?;
 
-    if sanitized.len() < min_len {
+    if sanitized.chars().count() < min_len {
         return Err(ValidationError {
             error:   "too_short",
             field:   field_name.to_string(),
@@ -299,7 +278,7 @@ pub fn validate_string(
         });
     }
 
-    if sanitized.len() > max_len {
+    if sanitized.chars().count() > max_len {
         return Err(ValidationError {
             error:   "too_long",
             field:   field_name.to_string(),
@@ -316,6 +295,20 @@ pub fn validate_string(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sanitize_keeps_comparisons_and_rejects_markup() {
+        assert_eq!(sanitize_string("f", "a < b and c > d").unwrap(), "a < b and c > d");
+        assert_eq!(sanitize_string("f", "5 < 6").unwrap(), "5 < 6");
+        assert!(sanitize_string("f", "<b>hi</b>").is_err());
+        assert!(sanitize_string("f", "x <img src=1>").is_err());
+    }
+
+    #[test]
+    fn validate_string_counts_chars_not_bytes() {
+        assert!(validate_string("f", "ééééé", 1, 5).is_ok());
+        assert!(validate_string("f", "éééééé", 1, 5).is_err());
+    }
 
     #[test]
     fn webhook_max_events_defaults_on_missing_or_invalid() {
