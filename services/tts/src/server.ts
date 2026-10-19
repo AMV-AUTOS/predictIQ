@@ -18,6 +18,8 @@
  */
 
 import { createReadStream } from "fs";
+import { parsePositiveIntEnv } from "./envParsing";
+import { registerGracefulShutdown } from "./gracefulShutdown";
 import express, { Express, Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import { TTSService, TTSConfig, VOICES, AuthError, TTSProviderError } from "./TTSService";
@@ -48,6 +50,14 @@ initTracing();
 // Configuration
 // ---------------------------------------------------------------------------
 
+// Issue #1799: single rate-limit setting shared by the service-level limiter and
+// the Express limiter. TTS_RATE_LIMIT_PER_MINUTE is a deprecated alias for
+// TTS_RATE_LIMIT_MAX (used only when TTS_RATE_LIMIT_MAX is unset).
+const ttsRateLimitMax = process.env.TTS_RATE_LIMIT_MAX
+  ? parsePositiveIntEnv("TTS_RATE_LIMIT_MAX", 100)
+  : parsePositiveIntEnv("TTS_RATE_LIMIT_PER_MINUTE", 100);
+const ttsRateLimitWindowMs = parsePositiveIntEnv("TTS_RATE_LIMIT_WINDOW_MS", 60000);
+
 const config: TTSConfig = {
   provider: (process.env.TTS_PROVIDER as any) || "elevenlabs",
   elevenlabs: process.env.ELEVENLABS_API_KEY
@@ -69,20 +79,20 @@ const config: TTSConfig = {
       }
     : undefined,
   rateLimit: {
-    maxRequests: parseInt(process.env.TTS_RATE_LIMIT_MAX || "100", 10),
-    windowMs: parseInt(process.env.TTS_RATE_LIMIT_WINDOW_MS || "60000", 10),
+    maxRequests: ttsRateLimitMax,
+    windowMs: ttsRateLimitWindowMs,
   },
   cache: {
-    ttlMs: parseInt(process.env.TTS_CACHE_TTL_MS || "86400000", 10),
-    maxEntries: parseInt(process.env.TTS_CACHE_MAX_ENTRIES || "1000", 10),
+    ttlMs: parsePositiveIntEnv("TTS_CACHE_TTL_MS", 86400000),
+    maxEntries: parsePositiveIntEnv("TTS_CACHE_MAX_ENTRIES", 1000),
     // Bounds total cached audio bytes, not just entry count — MAX_INPUT_LENGTH
     // allows several-MB buffers per entry, so maxEntries alone permits
     // gigabytes of heap growth. Default: 256 MiB.
-    maxBytes: parseInt(process.env.TTS_CACHE_MAX_BYTES || String(256 * 1024 * 1024), 10),
+    maxBytes: parsePositiveIntEnv("TTS_CACHE_MAX_BYTES", 256 * 1024 * 1024),
   },
   retry: {
-    maxRetries: parseInt(process.env.TTS_MAX_RETRIES || "3", 10),
-    maxDelayMs: parseInt(process.env.TTS_MAX_DELAY_MS || "60000", 10),
+    maxRetries: parsePositiveIntEnv("TTS_MAX_RETRIES", 3),
+    maxDelayMs: parsePositiveIntEnv("TTS_MAX_DELAY_MS", 60000),
   },
   // Issue #1133: job store, rate limiting, and cache are process-local Maps
   // by default, which break correctness under horizontal scaling (a GET
@@ -186,13 +196,12 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 // The Authorization header cannot be used as a key here: it hasn't been
 // validated yet (auth middleware runs after this, and is optional), so a
 // rotating fake credential would otherwise reset the bucket on every request.
-const ttsRateLimitPerMinute = parseInt(process.env.TTS_RATE_LIMIT_PER_MINUTE || "60", 10);
 const ttsRateLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: ttsRateLimitPerMinute,
+  windowMs: ttsRateLimitWindowMs,
+  max: ttsRateLimitMax,
   keyGenerator: rateLimitKeyGenerator,
   handler: (_req: Request, res: Response): void => {
-    res.setHeader("Retry-After", "60");
+    res.setHeader("Retry-After", String(Math.ceil(ttsRateLimitWindowMs / 1000)));
     res.status(429).json({ error: "Too Many Requests" });
   },
 });
@@ -320,3 +329,9 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 export { app, service, healthChecker, providerErrorMessage, errorStatus, sendError };
+
+// Issue #1800: keep a handle on the HTTP server so SIGTERM/SIGINT can drain it.
+if (require.main === module) {
+  const server = app.listen(port, () => console.log(`TTS server listening on port ${port}`));
+  registerGracefulShutdown(server);
+}

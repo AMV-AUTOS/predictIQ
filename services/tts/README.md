@@ -24,7 +24,7 @@ export TTS_API_KEY="key1,key2,key3"
 
 #### Rate Limiting
 
-- `TTS_RATE_LIMIT_MAX`: Max requests per window (default: 100)
+- `TTS_RATE_LIMIT_MAX`: Max requests per window (default: 100). Applies to both the service-level and Express limiters; `TTS_RATE_LIMIT_PER_MINUTE` is a deprecated alias
 - `TTS_RATE_LIMIT_WINDOW_MS`: Window duration in milliseconds (default: 60000)
 
 #### Caching (Issue #724)

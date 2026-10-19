@@ -8,6 +8,19 @@ import { resourceFromAttributes } from "@opentelemetry/resources";
 import { SemanticResourceAttributes } from "@opentelemetry/semantic-conventions";
 import { HttpInstrumentation } from "@opentelemetry/instrumentation-http";
 
+let activeSdk: NodeSDK | undefined;
+
+/** Flush and stop the OTEL SDK; never exits the process. */
+export async function shutdownTracing(): Promise<void> {
+  if (!activeSdk) return;
+  try {
+    await activeSdk.shutdown();
+    console.log("Tracing terminated");
+  } catch (error) {
+    console.error("Error terminating tracing", error);
+  }
+}
+
 export function initTracing() {
   const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT || "http://localhost:4317";
   const serviceName = process.env.OTEL_SERVICE_NAME || "predictiq-tts";
@@ -32,14 +45,8 @@ export function initTracing() {
 
   sdk.start();
 
-  // Graceful shutdown
-  process.on("SIGTERM", () => {
-    sdk
-      .shutdown()
-      .then(() => console.log("Tracing terminated"))
-      .catch((error) => console.error("Error terminating tracing", error))
-      .finally(() => process.exit(0));
-  });
+  // Shutdown is coordinated centrally by gracefulShutdown.ts (issue #1800).
+  activeSdk = sdk;
 
   return sdk;
 }
