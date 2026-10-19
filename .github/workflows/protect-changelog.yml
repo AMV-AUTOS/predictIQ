@@ -5,6 +5,9 @@ on:
     paths:
       - "CHANGELOG.md"
 
+permissions:
+  contents: read
+
 jobs:
   block-manual-changelog:
     name: Block manual CHANGELOG edits

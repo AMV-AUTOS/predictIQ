@@ -305,3 +305,12 @@ Key metrics to monitor:
 - [OpenTelemetry Documentation](https://opentelemetry.io/docs/)
 - [Jaeger Documentation](https://www.jaegertracing.io/docs/)
 - [W3C Trace Context](https://www.w3.org/TR/trace-context/)
+
+## OTLP collector in AWS (Terraform)
+
+`infrastructure/terraform/otel_collector.tf` adds three variables:
+
+- `otlp_endpoint`: injected into the API task as `OTLP_ENDPOINT` (unset by default, which disables export).
+- `otlp_collector_cidr_blocks` / `otlp_collector_sg_id`: open ECS task egress on TCP 4317 (OTLP gRPC) and 4318 (OTLP HTTP) to the collector.
+
+Run an ADOT or OpenTelemetry collector reachable from the private subnets, then set these in the environment's tfvars.
