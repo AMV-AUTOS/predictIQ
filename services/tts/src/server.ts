@@ -19,6 +19,7 @@
 
 import { createReadStream } from "fs";
 import { parsePositiveIntEnv } from "./envParsing";
+import { registerGracefulShutdown } from "./gracefulShutdown";
 import express, { Express, Request, Response, NextFunction } from "express";
 import rateLimit from "express-rate-limit";
 import { TTSService, TTSConfig, VOICES, AuthError, TTSProviderError } from "./TTSService";
@@ -330,3 +331,9 @@ app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
 });
 
 export { app, service, healthChecker, providerErrorMessage, errorStatus, sendError };
+
+// Issue #1800: keep a handle on the HTTP server so SIGTERM/SIGINT can drain it.
+if (require.main === module) {
+  const server = app.listen(port, () => console.log(`TTS server listening on port ${port}`));
+  registerGracefulShutdown(server);
+}
