@@ -204,4 +204,7 @@ pub enum ErrorCode {
 
     /// The guardian removal proposal's voting period has expired.
     RemovalExpired = 166,
+
+    /// The provided base fee is outside the allowed range (0 to 10_000 bps).
+    InvalidBaseFee = 167,
 }
